@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       headers: { Authorization: CLICKUP_API_KEY }
     });
     const taskData = await taskRes.json();
-    console.log(await taskRes.json());
+    console.log(taskData, "DATA FROM TASK");
     const phoneField = taskData?.custom_fields?.find(f => f.name === 'Teléfono');
 
     const rawPhone = phoneField?.value;
