@@ -1,6 +1,5 @@
 // /api/call.js
 export default async function handler(req, res) {
-  const axios = require('axios');
   const crypto = require('crypto');
 
   const { id, advisor } = req.query;
@@ -22,25 +21,33 @@ export default async function handler(req, res) {
   const extension = advisorExtensionMap[advisor] || 100;
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
-  const taskRes = await axios.get(`https://api.clickup.com/api/v2/task/${id}`, {
-    headers: { Authorization: CLICKUP_API_KEY }
-  });
+  try {
+    // 1. Get the task from ClickUp
+    const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${id}`, {
+      headers: { Authorization: CLICKUP_API_KEY }
+    });
+    const task = await taskRes.json();
 
-  const task = taskRes.data;
-  const phoneField = task.custom_fields.find(f => f.name === 'Teléfono');
-  const phone = phoneField?.value?.replace(/[^\d+]/g, '');
+    const phoneField = task.custom_fields.find(f => f.name === 'Teléfono');
+    const rawPhone = phoneField?.value;
+    if (!rawPhone) return res.status(404).send('No phone found');
 
-  if (!phone) return res.status(404).send('No phone found.');
+    const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
 
-  const params = `from=${extension}&to=${phone}&is_hidden=1`;
-  const signature = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(params).digest('hex');
+    // 2. Trigger Zadarma call
+    const params = `from=${extension}&to=${cleanedPhone}&is_hidden=1`;
+    const signature = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(params).digest('hex');
 
-  await axios.get(`https://api.zadarma.com/v1/request/callback/?${params}`, {
-    headers: {
-      Authorization: ZADARMA_API_KEY,
-      Signature: signature
-    }
-  });
+    await fetch(`https://api.zadarma.com/v1/request/callback/?${params}`, {
+      headers: {
+        Authorization: ZADARMA_API_KEY,
+        Signature: signature
+      }
+    });
 
-  res.status(200).send('Call initiated.');
+    return res.status(200).send('✅ Call started');
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send('❌ Failed to make call');
+  }
 }
