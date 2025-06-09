@@ -26,9 +26,10 @@ export default async function handler(req, res) {
     const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${id}`, {
       headers: { Authorization: CLICKUP_API_KEY }
     });
-    const task = await taskRes.json();
+    const taskData = await taskRes.json();
+    console.log(await taskRes.json());
+    const phoneField = taskData?.custom_fields?.find(f => f.name === 'Teléfono');
 
-    const phoneField = task.custom_fields.find(f => f.name === 'Teléfono');
     const rawPhone = phoneField?.value;
     if (!rawPhone) return res.status(404).send('No phone found');
 
