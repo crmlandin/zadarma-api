@@ -39,12 +39,15 @@ export default async function handler(req, res) {
     const params = `from=${extension}&to=${cleanedPhone}&is_hidden=1`;
     const signature = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(params).digest('hex');
 
-    await fetch(`https://api.zadarma.com/v1/request/callback/?${params}`, {
+    const callRes = await fetch(`https://api.zadarma.com/v1/request/callback/?${params}`, {
       headers: {
         Authorization: ZADARMA_API_KEY,
         Signature: signature
       }
     });
+
+    const result = await callRes.json();
+    console.log('📞 Zadarma API response:', result);
 
     return res.status(200).send('✅ Call started');
   } catch (err) {
