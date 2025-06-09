@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     diogo: '108',
   };
 
-  const extension = advisorExtensionMap[advisor] || 100;
+  const extension = advisorExtensionMap[advisor.toLowerCase()] || 100;
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
   try {
