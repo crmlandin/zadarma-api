@@ -41,6 +41,8 @@ export default async function handler(req, res) {
 
     console.log("Signature from zadarma", signature);
 
+    console.log("Params for the URL", params);
+
     const callRes = await fetch(`https://api.zadarma.com/v1/request/callback/?${params}`, {
       headers: {
         Authorization: ZADARMA_API_KEY,
