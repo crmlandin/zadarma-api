@@ -36,22 +36,44 @@ export default async function handler(req, res) {
     const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
 
     // 2. Trigger Zadarma call
-    const params = `from=${extension}&to=${cleanedPhone}&is_hidden=1`;
-    const signature = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(params).digest('hex');
+    const method = '/v1/request/callback/';
+    const paramsObj = {
+      from: extension,
+      to: cleanedPhone,
+      is_hidden: '1'
+    };
 
-    console.log("Signature from zadarma", signature);
+    // Ordenar alfabéticamente y construir query string
+    const sortedParams = Object.keys(paramsObj).sort().reduce((acc, key) => {
+      acc[key] = paramsObj[key];
+      return acc;
+    }, {});
+    const queryString = new URLSearchParams(sortedParams).toString();
+    const md5Hash = crypto.createHash('md5').update(queryString).digest('hex');
+    const stringToSign = method + queryString + md5Hash;
 
-    console.log("Params for the URL", params);
+    const hmac = crypto.createHmac('sha1', ZADARMA_API_SECRET)
+      .update(stringToSign)
+      .digest();
 
-    const callRes = await fetch(`https://api.zadarma.com/v1/request/callback/?${params}`, {
+    const signature = Buffer.from(hmac).toString('base64');
+    const authorizationHeader = `${ZADARMA_API_KEY}:${signature}`;
+
+    const url = `https://api.zadarma.com${method}?${queryString}`;
+
+    // 3. Make the call
+    const callRes = await fetch(url, {
       headers: {
-        Authorization: ZADARMA_API_KEY,
-        Signature: signature
+        Authorization: authorizationHeader
       }
     });
 
     const result = await callRes.json();
     console.log('📞 Zadarma API response:', result);
+
+    if (result.status !== 'success') {
+      return res.status(500).send(`❌ Zadarma error: ${result.message}`);
+    }
 
     return res.status(200).send('✅ Call started');
   } catch (err) {
