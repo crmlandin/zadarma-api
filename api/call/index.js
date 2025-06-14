@@ -35,7 +35,7 @@ export default async function handler(req, res) {
 
     const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
 
-    // 2. Trigger Zadarma call
+    // 2. Zadarma auth signature creation
     const method = '/v1/request/callback/';
     const paramsObj = {
       from: extension,
