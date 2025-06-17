@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 // Test simple: check balance (no params)
 const testMethod = '/v1/info/balance/';
 const testParams = {};
