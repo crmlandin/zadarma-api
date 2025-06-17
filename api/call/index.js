@@ -38,7 +38,6 @@ export default async function handler(req, res) {
     const params = {
       from: extension,
       to: cleanedPhone,
-      is_hidden: '1'
     };
 
     // 3. Sort and encode params
