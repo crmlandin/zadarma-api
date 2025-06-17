@@ -23,6 +23,14 @@ export default async function handler(req, res) {
   const response = await fetch(testUrl, {
     headers: { Authorization: testAuthHeader }
   });
+
+console.log('URL:', url);
+console.log('Query String:', query);
+console.log('MD5(query):', md5);
+console.log('String to Sign:', JSON.stringify(stringToSign));
+console.log('Base64 Signature:', hmacBase64);
+console.log('Authorization Header:', `${ZADARMA_API_KEY}:${hmacBase64}`);
+
   console.log(await response.text());
 
 }
