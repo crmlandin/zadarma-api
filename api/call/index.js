@@ -1,7 +1,7 @@
 // /api/call.js
-export default async function handler(req, res) {
-  const crypto = require('crypto');
+import crypto from 'crypto';
 
+export default async function handler(req, res) {
   const { id, advisor } = req.query;
 
   const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY;
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     diogo: '108',
   };
 
-  const extension = advisorExtensionMap[advisor.toLowerCase()] || 100;
+  const extension = advisorExtensionMap[advisor?.toLowerCase()];
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
   try {
@@ -27,48 +27,44 @@ export default async function handler(req, res) {
       headers: { Authorization: CLICKUP_API_KEY }
     });
     const taskData = await taskRes.json();
-    console.log(taskData, "DATA FROM TASK");
     const phoneField = taskData?.custom_fields?.find(f => f.name === 'Teléfono');
-
     const rawPhone = phoneField?.value;
     if (!rawPhone) return res.status(404).send('No phone found');
 
     const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
 
-    // 2. Zadarma auth signature creation
+    // 2. Zadarma parameters
     const method = '/v1/request/callback/';
-    const paramsObj = {
+    const params = {
       from: extension,
       to: cleanedPhone,
       is_hidden: '1'
     };
 
-    // Ordenar alfabéticamente y construir query string
-    const sortedParams = Object.keys(paramsObj).sort().reduce((acc, key) => {
-      acc[key] = paramsObj[key];
-      return acc;
-    }, {});
-    const queryString = new URLSearchParams(sortedParams).toString();
-    const md5Hash = crypto.createHash('md5').update(queryString).digest('hex');
-    const stringToSign = method + queryString + md5Hash;
+    // 3. Sort and encode params
+    const sortedKeys = Object.keys(params).sort();
+    const query = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&');
 
-    const hmac = crypto.createHmac('sha1', ZADARMA_API_SECRET)
-      .update(stringToSign)
-      .digest();
+    // 4. Create md5 hash of query
+    const md5 = crypto.createHash('md5').update(query).digest('hex');
 
-    const signature = Buffer.from(hmac).toString('base64');
-    const authorizationHeader = `${ZADARMA_API_KEY}:${signature}`;
+    // 5. Create string to sign
+    const stringToSign = method + query + md5;
 
-    const url = `https://api.zadarma.com${method}?${queryString}`;
+    // 6. Create HMAC-SHA1 signature and encode in base64
+    const hmac = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(stringToSign).digest();
+    const hmacBase64 = Buffer.from(hmac).toString('base64');
 
-    // 3. Make the call
-    const callRes = await fetch(url, {
-      headers: {
-        Authorization: authorizationHeader
-      }
-    });
+    // 7. Final URL and headers
+    const url = `https://api.zadarma.com${method}?${query}`;
+    const headers = {
+      Authorization: `${ZADARMA_API_KEY}:${hmacBase64}`
+    };
 
+    // 8. Make the request
+    const callRes = await fetch(url, { headers });
     const result = await callRes.json();
+
     console.log('📞 Zadarma API response:', result);
 
     if (result.status !== 'success') {
