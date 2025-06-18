@@ -21,36 +21,47 @@ export default async function handler(req, res) {
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
   try {
+    // 1. Get task from ClickUp
+    const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${id}`, {
+      headers: { Authorization: CLICKUP_API_KEY }
+    });
+    const taskData = await taskRes.json();
+    const phoneField = taskData?.custom_fields?.find(f => f.name === 'Teléfono');
+    const rawPhone = phoneField?.value;
+    if (!rawPhone) return res.status(404).send('No phone found');
+
+    const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
+
+    // Zadarma params
     const method = '/v1/request/callback/';
     const params = {
       from: extension,
-      to: '573219374889', // Puedes reemplazar por el número real del task
+      to: cleanedPhone
     };
 
-    // 1. Ordenar y codificar
+    // Step 1: sort and encode query
     const sortedKeys = Object.keys(params).sort();
     const query = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&');
 
-    // 2. MD5 en formato HEX
-    const md5Hex = crypto.createHash('md5').update(query).digest('hex');
+    // Step 2: md5 hex
+    const md5 = crypto.createHash('md5').update(query).digest('hex');
 
-    // 3. Formar stringToSign
-    const stringToSign = method + query + md5Hex;
+    // Step 3: stringToSign
+    const stringToSign = method + query + md5;
 
-    // 4. HMAC-SHA1 → HEX
-    const hmacHex = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(stringToSign).digest('hex');
+    // Step 4: HMAC-SHA1 → HEX string (not binary)
+    const hmacBuffer = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(stringToSign).digest();
+    const hmacHex = [...hmacBuffer].map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
 
-    // 5. Convertir HEX string a buffer y luego a base64
-    const hmacBuffer = Buffer.from(hmacHex, 'hex');
-    const hmacBase64 = hmacBuffer.toString('base64');
+    // Step 5: base64 from HEX
+    const hmacBase64 = Buffer.from(hmacHex).toString('base64');
 
+    // Step 6: Authorization header
     const authHeader = `${ZADARMA_API_KEY}:${hmacBase64}`;
     const url = `https://api.zadarma.com${method}?${query}`;
 
     const callRes = await fetch(url, {
-      headers: {
-        Authorization: authHeader,
-      }
+      headers: { Authorization: authHeader }
     });
 
     const result = await callRes.json();
