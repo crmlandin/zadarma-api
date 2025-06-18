@@ -1,13 +1,5 @@
 import crypto from 'crypto';
 
-function base64EncodeHexString(hexStr) {
-  let binaryStr = '';
-  for (let i = 0; i < hexStr.length; i += 2) {
-    binaryStr += String.fromCharCode(parseInt(hexStr.substr(i, 2), 16));
-  }
-  return Buffer.from(binaryStr, 'binary').toString('base64');
-}
-
 export default async function handler(req, res) {
   const { id, advisor } = req.query;
 
@@ -29,33 +21,39 @@ export default async function handler(req, res) {
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
   try {
-    // 1. Obtener la tarea de ClickUp
-    const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${id}`, {
-      headers: { Authorization: CLICKUP_API_KEY }
-    });
-    const taskData = await taskRes.json();
-    const phoneField = taskData?.custom_fields?.find(f => f.name === 'Teléfono');
-    const rawPhone = phoneField?.value;
-    if (!rawPhone) return res.status(404).send('No phone found');
-
-    const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
-
-    // 2. Construcción del query y firma
     const method = '/v1/request/callback/';
-    const params = { from: extension, to: cleanedPhone };
+    const params = {
+      from: extension,
+      to: '573219374889', // Puedes reemplazar por el número real del task
+    };
+
+    // 1. Ordenar y codificar
     const sortedKeys = Object.keys(params).sort();
     const query = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&');
+
+    // 2. MD5 en formato HEX
     const md5Hex = crypto.createHash('md5').update(query).digest('hex');
+
+    // 3. Formar stringToSign
     const stringToSign = method + query + md5Hex;
+
+    // 4. HMAC-SHA1 → HEX
     const hmacHex = crypto.createHmac('sha1', ZADARMA_API_SECRET).update(stringToSign).digest('hex');
-    const hmacBase64 = base64EncodeHexString(hmacHex);
+
+    // 5. Convertir HEX string a buffer y luego a base64
+    const hmacBuffer = Buffer.from(hmacHex, 'hex');
+    const hmacBase64 = hmacBuffer.toString('base64');
+
     const authHeader = `${ZADARMA_API_KEY}:${hmacBase64}`;
-
-    // 3. Llamada a la API
     const url = `https://api.zadarma.com${method}?${query}`;
-    const callRes = await fetch(url, { headers: { Authorization: authHeader } });
-    const result = await callRes.json();
 
+    const callRes = await fetch(url, {
+      headers: {
+        Authorization: authHeader,
+      }
+    });
+
+    const result = await callRes.json();
     console.log('📞 Zadarma API response:', result);
 
     if (result.status !== 'success') {
