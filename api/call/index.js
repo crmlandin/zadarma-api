@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     const params = {
       from: extension,
       to: cleanedPhone,
-      sip: "+525596023202"
+      sip: extension
     };
 
     // Step 1: sort and encode query
