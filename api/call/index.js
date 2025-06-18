@@ -36,7 +36,8 @@ export default async function handler(req, res) {
     const method = '/v1/request/callback/';
     const params = {
       from: extension,
-      to: cleanedPhone
+      to: cleanedPhone,
+      is_hidden: 1
     };
 
     // Step 1: sort and encode query
