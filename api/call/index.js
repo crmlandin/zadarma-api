@@ -15,9 +15,13 @@ export default async function handler(req, res) {
     facundo: '105',
     ricardo: '107',
     diogo: '108',
+    diogo: '108',
+    carlamontero: '109',
+    eduardo: '110',
+    valeria: '111',
   };
 
-  const extension = advisorExtensionMap[advisor?.toLowerCase()] || advisorExtensionMap['chefe'];
+  const extension = advisorExtensionMap[advisor?.replace(/\s+/g, '').toLowerCase()] || advisorExtensionMap['chefe'];
   if (!id || !extension) return res.status(400).send('Missing ID or advisor.');
 
   try {
@@ -37,7 +41,7 @@ export default async function handler(req, res) {
     const params = {
       from: extension,
       to: cleanedPhone,
-      is_hidden: 1
+      sip: "+525596023202"
     };
 
     // Step 1: sort and encode query
